@@ -6,7 +6,7 @@ comics/gocomics
 import os
 import shutil
 import urllib3
-from datetime import datetime
+import datetime as dt
 from functools import lru_cache, wraps
 from inspect import unwrap
 from io import BytesIO
@@ -22,6 +22,7 @@ from comics.exceptions import InvalidDateError
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 _BASE_URL = "https://www.gocomics.com"
 _BASE_RANDOM_URL = "https://www.gocomics.com/random"
+_GOCOMICS_TIMEZONE = dt.timezone(offset=dt.timedelta(hours=-5))
 
 
 def bypass_comics_cache(func):
@@ -72,10 +73,10 @@ class search:
             ComicsAPI: `ComicsAPI` instance of comic strip published on the provided date.
         """
         if isinstance(date, str):
-            date = dateutil.parser.parse(date)
-        if date < datetime.strptime(self.start_date, "%Y-%m-%d"):
+            date = dateutil.parser.parse(date, tzinfo=_GOCOMICS_TIMEZONE)
+        if date < dt.datetime.strptime(self.start_date, "%Y-%m-%d"):
             raise InvalidDateError(
-                f"Search for dates after {self.start_date}. Your input: {datetime.strftime(date, '%Y-%m-%d')}"
+                f"Search for dates after {self.start_date}. Your input: {dt.datetime.strftime(date, '%Y-%m-%d')}"
             )
         return ComicsAPI(self.endpoint, self.title, date)
 
@@ -98,7 +99,10 @@ class ComicsAPI:
         if date is None:
             r = self._get_response(self._random_url)
             # Set date as date of random comic strip
-            self._date = dateutil.parser.parse("-".join(r.url.split("/")[-3:]))
+            self._date = dateutil.parser.parse(
+                "-".join(r.url.split("/")[-3:]),
+                tzinfo=_GOCOMICS_TIMEZONE,
+            )
         else:
             self._date = date
 
@@ -112,7 +116,7 @@ class ComicsAPI:
         Returns:
             str: String formatted comic strip date.
         """
-        return datetime.strftime(self._date, "%Y-%m-%d")
+        return dt.datetime.strftime(self._date, "%Y-%m-%d")
 
     def download(self, path=None):
         """Downloads comic strip. Downloads as a PNG file if no image endpoint is specified.
@@ -191,7 +195,7 @@ class ComicsAPI:
         Returns:
             str: GoComics URL with date.
         """
-        strf_datetime = datetime.strftime(self._date, "%Y/%m/%d")
+        strf_datetime = dt.datetime.strftime(self._date, "%Y/%m/%d")
         return f"{_BASE_URL}/{self.endpoint}/{strf_datetime}"
 
     @property
